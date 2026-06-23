@@ -1,4 +1,7 @@
 require('dotenv').config();
+require('http').createServer((req, res) => res.end('Bot is running!')).listen(process.env.PORT || 3000, () => {
+    console.log(`Render 포트 감지 서버가 ${process.env.PORT || 3000}번 포트에서 실행 중입니다.`);
+});
 const { Client, GatewayIntentBits, ApplicationCommandOptionType, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const mongoose = require('mongoose');
 const YouTube = require('youtube-sr').default;
