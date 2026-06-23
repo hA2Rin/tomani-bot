@@ -22,7 +22,8 @@ const warningSchema = new mongoose.Schema({
 });
 const Warning = mongoose.model('Warning', warningSchema);
 
-const forbiddenWords = ['시발', '병신', '개새끼', '느금마'];
+const forbiddenWords = ['애미', '엠창', '앰창', '니애미', '니엠', '니앱', '느개미', '느그매', '느그아부지', '패드립', 
+    '호로새끼', '호로자식', '고아', '고아새끼', '상놈'];
 
 mongoose.connect(process.env.MONGODB_URI)
     .then(() => console.log('몽고DB가 성공적으로 연결되었습니다.'))
