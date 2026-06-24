@@ -22,8 +22,10 @@ const warningSchema = new mongoose.Schema({
 });
 const Warning = mongoose.model('Warning', warningSchema);
 
-const forbiddenWords = ['애미', '엠창', '앰창', '니애미', '니엠', '니앱', '느개미', '느그매', '느그아부지', '패드립', 
-    '호로새끼', '호로자식', '고아', '고아새끼', '상놈'];
+// 💡 패드립과 핵심 비속어를 모두 통합한 금지어 목록입니다.
+const forbiddenWords = [
+    '애미', '엠창', '앰창', '니애미', '니엠', '니앱', '느개미', '느그매', '느그아부지','호로새끼', '호로자식', '고아', '고아새끼', '느금마'
+];
 
 mongoose.connect(process.env.MONGODB_URI)
     .then(() => console.log('몽고DB가 성공적으로 연결되었습니다.'))
@@ -88,7 +90,9 @@ client.once('ready', async () => {
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
-    const triggeredWord = forbiddenWords.find(word => message.content.includes(word));
+    // 💡 모든 공백(띄어쓰기)을 제거한 가공 텍스트를 만들어 유해 단어를 찾아냅니다. (예: 느 금 마 -> 느금마 검출 가능)
+    const cleanContent = message.content.replace(/\s+/g, '');
+    const triggeredWord = forbiddenWords.find(word => cleanContent.includes(word));
     
     if (triggeredWord) {
         try {
@@ -218,7 +222,8 @@ client.on('interactionCreate', async (interaction) => {
 
         case '인원확인': {
             const isOwner = interaction.guild.ownerId === interaction.user.id;
-            const isSubOwner = interaction.member.roles.cache.some(role => role.name === '부서버장');
+            // 💡 역할 고유 ID 검증 방식으로 안전하게 수정 완료
+            const isSubOwner = interaction.member.roles.cache.some(role => role.id === '1098970312722366505' || role.id === '1146079297128370317');
 
             if (!isOwner && !isSubOwner) {
                 return await interaction.reply({ content: '❌ 이 명령어는 서버장과 부서버장만 사용할 수 있습니다.', ephemeral: true });
@@ -230,7 +235,8 @@ client.on('interactionCreate', async (interaction) => {
 
         case '킥': {
             const isOwner = interaction.guild.ownerId === interaction.user.id;
-            const isSubOwner = interaction.member.roles.cache.some(role => role.name === '부서버장');
+            // 💡 역할 고유 ID 검증 방식으로 안전하게 수정 완료
+            const isSubOwner = interaction.member.roles.cache.some(role => role.id === '1098970312722366505' || role.id === '1146079297128370317');
 
             if (!isOwner && !isSubOwner) {
                 return await interaction.reply({ content: '❌ 이 명령어는 서버장과 부서버장님만 사용할 수 있습니다!', ephemeral: true });
@@ -258,8 +264,7 @@ client.on('interactionCreate', async (interaction) => {
 
         case '경고': {
             const isOwner = interaction.guild.ownerId === interaction.user.id;
-            // 💡 역할 이름을 '관리자'와 '부관리자'로 체크하도록 변경
-            const hasPermissionRole = interaction.member.roles.cache.some(role => role.name === '관리자' || role.name === '부관리자');
+            const hasPermissionRole = interaction.member.roles.cache.some(role => role.id === '1146079297128370317' || role.id === '1098970312722366505');
 
             if (!isOwner && !hasPermissionRole) {
                 return await interaction.reply({ content: '❌ 이 명령어는 서버장과 관리자/부관리자님만 사용할 수 있습니다!', ephemeral: true });
