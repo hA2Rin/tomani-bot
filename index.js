@@ -26,7 +26,7 @@ const Warning = mongoose.model('Warning', warningSchema);
 // ⚙️ 2. 서버 설정 데이터베이스 스키마 (경고 한도 저장용)
 const guildSettingsSchema = new mongoose.Schema({
     guildId: { type: String, unique: true },
-    maxWarnings: { type: Number, default: 5 } // 기본값은 경고 5회로 설정
+    maxWarnings: { type: Number, default: 5 }
 });
 const GuildSettings = mongoose.model('GuildSettings', guildSettingsSchema);
 
@@ -74,18 +74,34 @@ client.once('ready', async () => {
                     description: '유저에게 취할 조치 사항을 선택하세요.', 
                     type: ApplicationCommandOptionType.String, 
                     required: true,
+                    // ✨ 1분부터 디스코드 한도인 28일까지 완벽 지원 (디스코드 제한상 최대 25개 선택지 구성)
                     choices: [
-                        { name: '구두 경고', value: '구두 경고' },
-                        { name: '5분 타임아웃', value: '5분 타임아웃' },
-                        { name: '20분 타임아웃', value: '20분 타임아웃' },
-                        { name: '서버 추방 (킥)', value: '서버 추방 (킥)' },
-                        { name: '서버 차단 (밴)', value: '서버 차단 (밴)' }
+                        { name: '📢 구두 경고', value: '구두 경고' },
+                        { name: '⏳ 1분 타임아웃', value: '1분 타임아웃' },
+                        { name: '⏳ 5분 타임아웃', value: '5분 타임아웃' },
+                        { name: '⏳ 10분 타임아웃', value: '10분 타임아웃' },
+                        { name: '⏳ 30분 타임아웃', value: '30분 타임아웃' },
+                        { name: '⏳ 1시간 타임아웃', value: '1시간 타임아웃' },
+                        { name: '⏳ 2시간 타임아웃', value: '2시간 타임아웃' },
+                        { name: '⏳ 4시간 타임아웃', value: '4시간 타임아웃' },
+                        { name: '⏳ 8시간 타임아웃', value: '8시간 타임아웃' },
+                        { name: '⏳ 12시간 타임아웃', value: '12시간 타임아웃' },
+                        { name: '⏳ 18시간 타임아웃', value: '18시간 타임아웃' },
+                        { name: '⏰ 하루 (24시간) 타임아웃', value: '하루 타임아웃' },
+                        { name: '⏰ 이틀 (48시간) 타임아웃', value: '이틀 타임아웃' },
+                        { name: '⏰ 사흘 (72시간) 타임아웃', value: '사흘 타임아웃' },
+                        { name: '⏰ 나흘 (96시간) 타임아웃', value: '나흘 타임아웃' },
+                        { name: '⏰ 일주일 (7일) 타임아웃', value: '7일 타임아웃' },
+                        { name: '⏰ 이주일 (14일) 타임아웃', value: '14일 타임아웃' },
+                        { name: '⏰ 삼주일 (21일) 타임아웃', value: '21일 타임아웃' },
+                        { name: '⏰ 사주일 (28일 - 최대) 타임아웃', value: '28일 타임아웃' },
+                        { name: '🚨 서버 추방 (킥)', value: '서버 추방 (킥)' },
+                        { name: '🚫 서버 차단 (밴)', value: '서버 차단 (밴)' }
                     ]
                 },
                 { name: '누적경고수', description: '직접 지정할 누적 경고 수 (비워두면 자동 +1)', type: ApplicationCommandOptionType.Integer, required: false }
             ]
         },
-        // ✨ 추가된 명령어: 경고 차감
         {
             name: '경고차감',
             description: '관리자가 유저의 누적 경고 수를 차감합니다.',
@@ -96,7 +112,6 @@ client.once('ready', async () => {
                 { name: '사유', description: '경고를 차감해주는 명확한 사유를 적으세요.', type: ApplicationCommandOptionType.String, required: true }
             ]
         },
-        // ✨ 추가된 명령어: 경고 한도 설정 및 조회
         {
             name: '경고한도',
             description: '서버의 최대 누적 경고 제한 수치를 확인하거나 수정합니다.',
@@ -125,7 +140,8 @@ client.on('messageCreate', async (message) => {
         try {
             await message.delete().catch(() => {});
 
-            const timeoutDuration = 20 * 60 * 1000; 
+            // ✨ 자동 제재 타임아웃 시간을 30분으로 변경 완료
+            const timeoutDuration = 30 * 60 * 1000; 
             if (message.member && message.member.moderatable) {
                 await message.member.timeout(timeoutDuration, `금지어 사용 적발 (\`${triggeredWord}\`)`).catch(console.error);
             }
@@ -136,13 +152,11 @@ client.on('messageCreate', async (message) => {
                 { upsert: true, new: true }
             );
 
-            // ⚙️ 서버 설정에서 최대 경고 한도 가져오기 (없으면 기본값 5)
             const settings = await GuildSettings.findOne({ guildId: message.guild.id });
             const maxWarnings = settings ? settings.maxWarnings : 5;
 
-            let extraAction = '**20분간 채팅 금지 (타임아웃)**';
+            let extraAction = '**30분간 채팅 금지 (타임아웃)**';
             
-            // 🔥 경고 한도를 초과했을 경우 자동으로 서버 추방(킥) 진행
             if (userData.count >= maxWarnings && message.member && message.member.kickable) {
                 extraAction = `**🔥 경고 한도 초과 (${maxWarnings}회 이상)로 인한 서버 자동 추방 (킥)**`;
                 await message.member.kick(`누적 경고 ${userData.count}회로 인한 경고 한도 초과 자동 제재`).catch(console.error);
@@ -166,7 +180,7 @@ client.on('messageCreate', async (message) => {
             if (warnChannel) {
                 await warnChannel.send({ embeds: [warnEmbed] });
             } else {
-                await message.channel.send({ content: `⚠️ <@${message.author.id}>님, 금지어 사용으로 경고 1회 누적 처리되었습니다.`, embeds: [warnEmbed] });
+                await message.channel.send({ content: `⚠️ <@${message.author.id}>님, 금지어 사용으로 경고 1회 누적 및 30분간 타임아웃 처리되었습니다.`, embeds: [warnEmbed] });
             }
 
         } catch (error) {
@@ -308,6 +322,7 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             const targetUser = interaction.options.getUser('대상');
+            const targetMember = interaction.options.getMember('대상'); 
             const reason = interaction.options.getString('이유');
             const whatTheySaid = interaction.options.getString('무슨말');
             const actionTaken = interaction.options.getString('조치사항');
@@ -331,6 +346,30 @@ client.on('interactionCreate', async (interaction) => {
                 finalCount = userData ? userData.count : 1;
             }
 
+            // ⏱️ 타임아웃 문자열 인식 및 ms 변환 로직 (1분부터 28일까지 확장 지원)
+            let duration = 0;
+            if (actionTaken.includes('분')) duration = parseInt(actionTaken) * 60 * 1000;
+            else if (actionTaken.includes('시간')) duration = parseInt(actionTaken) * 60 * 60 * 1000;
+            else if (actionTaken === '하루 타임아웃') duration = 24 * 60 * 60 * 1000;
+            else if (actionTaken === '이틀 타임아웃') duration = 48 * 60 * 60 * 1000;
+            else if (actionTaken === '사흘 타임아웃') duration = 72 * 60 * 60 * 1000;
+            else if (actionTaken === '나흘 타임아웃') duration = 96 * 60 * 60 * 1000;
+            else if (actionTaken.includes('일 타임아웃')) duration = parseInt(actionTaken) * 24 * 60 * 60 * 1000;
+
+            let realActionText = `**${actionTaken}**`;
+
+            if (targetMember) {
+                if (duration > 0 && targetMember.moderatable) {
+                    await targetMember.timeout(duration, `관리자 수동 제재: ${reason}`).catch(console.error);
+                } else if (actionTaken === '서버 추방 (킥)' && targetMember.kickable) {
+                    await targetMember.kick(`관리자 수동 제재: ${reason}`).catch(console.error);
+                    realActionText = '🔥 **서버 추방 (킥) 완료**';
+                } else if (actionTaken === '서버 차단 (밴)' && targetMember.bannable) {
+                    await targetMember.ban({ reason: `관리자 수동 제재: ${reason}` }).catch(console.error);
+                    realActionText = '🚫 **서버 영구 차단 (밴) 완료**';
+                }
+            }
+
             const warnChannel = interaction.guild.channels.cache.find(ch => ch.name === '경고-로그');
             
             const manualEmbed = new EmbedBuilder()
@@ -340,7 +379,7 @@ client.on('interactionCreate', async (interaction) => {
                     { name: '👤 시행자', value: `<@${interaction.user.id}>`, inline: true },
                     { name: '🎯 대상자', value: `<@${targetUser.id}>`, inline: true },
                     { name: '📊 누적 경고 수', value: `**${finalCount}회**`, inline: true },
-                    { name: '⏳ 조치 사항', value: `**${actionTaken}**`, inline: true },
+                    { name: '⏳ 조치 사항', value: realActionText, inline: true },
                     { name: '📝 경고 이유', value: reason },
                     { name: '💬 무슨 말을 했는지', value: `\`\`\`${whatTheySaid}\`\`\`` }
                 )
@@ -350,11 +389,10 @@ client.on('interactionCreate', async (interaction) => {
                 await warnChannel.send({ embeds: [manualEmbed] }).catch(() => {});
             }
 
-            await interaction.reply({ content: `🚨 <@${targetUser.id}>님에게 수동 경고를 부여했습니다.`, embeds: [manualEmbed] });
+            await interaction.reply({ content: `🚨 <@${targetUser.id}>님에게 수동 경고 조치를 완료했습니다.`, embeds: [manualEmbed] });
             break;
         }
 
-        // ✨ 3. 경고 차감 명령어 핸들러
         case '경고차감': {
             const isOwner = interaction.guild.ownerId === interaction.user.id;
             const hasPermissionRole = interaction.member.roles.cache.some(role => role.id === '1146079297128370317' || role.id === '1098970312722366505');
@@ -371,12 +409,10 @@ client.on('interactionCreate', async (interaction) => {
                 return await interaction.reply({ content: '❌ 차감할 경고 수는 1개 이상이어야 합니다.', ephemeral: true });
             }
 
-            // 먼저 유저 데이터를 조회해옴
             let userData = await Warning.findOne({ guildId: interaction.guild.id, userId: targetUser.id });
             let beforeCount = userData ? userData.count : 0;
-            let afterCount = Math.max(0, beforeCount - reduceAmount); // 경고수가 0 밑으로 내려가지 않게 보정
+            let afterCount = Math.max(0, beforeCount - reduceAmount);
 
-            // 데이터베이스 업데이트
             userData = await Warning.findOneAndUpdate(
                 { guildId: interaction.guild.id, userId: targetUser.id },
                 { count: afterCount },
@@ -385,12 +421,13 @@ client.on('interactionCreate', async (interaction) => {
 
             const warnChannel = interaction.guild.channels.cache.find(ch => ch.name === '경고-로그');
 
+            // ✨ 필드 명칭을 [시행자] 와 [대상자] 로 깔끔하게 변환 완료
             const deductEmbed = new EmbedBuilder()
                 .setTitle('🟢 [경고 차감] 관리자 면제 조치')
-                .setColor(0x00FF00) // 초록색 카드
+                .setColor(0x00FF00)
                 .addFields(
-                    { name: '👤 면제 진행자', value: `<@${interaction.user.id}>`, inline: true },
-                    { name: '🎯 면제 대상자', value: `<@${targetUser.id}>`, inline: true },
+                    { name: '👤 시행자', value: `<@${interaction.user.id}>`, inline: true },
+                    { name: '🎯 대상자', value: `<@${targetUser.id}>`, inline: true },
                     { name: '📊 경고 변동 사항', value: `**${beforeCount}회 ➡️ ${userData.count}회** (\`-${reduceAmount}\`)`, inline: true },
                     { name: '📝 차감 사유', value: reason }
                 )
@@ -404,7 +441,6 @@ client.on('interactionCreate', async (interaction) => {
             break;
         }
 
-        // ✨ 4. 경고 한도 설정 및 조회 명령어 핸들러
         case '경고한도': {
             const isOwner = interaction.guild.ownerId === interaction.user.id;
             const hasPermissionRole = interaction.member.roles.cache.some(role => role.id === '1146079297128370317' || role.id === '1098970312722366505');
@@ -415,21 +451,19 @@ client.on('interactionCreate', async (interaction) => {
 
             const newLimit = interaction.options.getInteger('설정값');
 
-            // 1) 옵션에 값을 입력하지 않았다면 현재 설정 한도 조회 진행
             if (newLimit === null) {
                 const settings = await GuildSettings.findOne({ guildId: interaction.guild.id });
                 const currentLimit = settings ? settings.maxWarnings : 5;
 
                 const infoEmbed = new EmbedBuilder()
                     .setTitle('⚙️ 서버 경고 한도 정보')
-                    .setColor(0x3498DB) // 파란색 카드
+                    .setColor(0x3498DB)
                     .setDescription(`현재 이 서버의 최대 누적 경고 제한 수치는 **${currentLimit}회**입니다.\n이 횟수 이상 경고가 쌓인 유저는 금지어 사용 시 자동으로 추방(킥) 처리됩니다.`)
                     .setTimestamp();
 
                 return await interaction.reply({ embeds: [infoEmbed] });
             }
 
-            // 2) 옵션에 값을 입력했다면 해당 수치로 한도 변경 업데이트 진행
             if (newLimit <= 0) {
                 return await interaction.reply({ content: '❌ 경고 제한 한도는 최소 1 이상이어야 합니다.', ephemeral: true });
             }
@@ -442,7 +476,7 @@ client.on('interactionCreate', async (interaction) => {
 
             const settingsEmbed = new EmbedBuilder()
                 .setTitle('🔧 서버 경고 한도 변경 완료')
-                .setColor(0xE67E22) // 주황색 카드
+                .setColor(0xE67E22)
                 .addFields(
                     { name: '👤 변경자', value: `<@${interaction.user.id}>`, inline: true },
                     { name: '📈 변경된 경고 한도', value: `**${updatedSettings.maxWarnings}회**`, inline: true }
