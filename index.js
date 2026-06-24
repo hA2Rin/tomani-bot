@@ -258,10 +258,11 @@ client.on('interactionCreate', async (interaction) => {
 
         case '경고': {
             const isOwner = interaction.guild.ownerId === interaction.user.id;
-            const isSubOwner = interaction.member.roles.cache.some(role => role.name === '부서버장' || role.name === '부관리장');
+            // 💡 역할 이름을 '관리자'와 '부관리자'로 체크하도록 변경
+            const hasPermissionRole = interaction.member.roles.cache.some(role => role.name === '관리자' || role.name === '부관리자');
 
-            if (!isOwner && !isSubOwner) {
-                return await interaction.reply({ content: '❌ 이 명령어는 서버장과 부서버장/부관리장님만 사용할 수 있습니다!', ephemeral: true });
+            if (!isOwner && !hasPermissionRole) {
+                return await interaction.reply({ content: '❌ 이 명령어는 서버장과 관리자/부관리자님만 사용할 수 있습니다!', ephemeral: true });
             }
 
             const targetUser = interaction.options.getUser('대상');
