@@ -37,7 +37,7 @@ const forbiddenWords = [
 
 mongoose.connect(process.env.MONGODB_URI)
     .then(() => console.log('몽고DB가 성공적으로 연결되었습니다.'))
-    .catch((err) => console.error('몽고DB에 성공적으로 연결하지 못했습니다.'));
+    .catch((err) => console.error('몽고DB에 성공적으로 연결하지 못했습니다.:', err));
 
 client.once('ready', async () => {
     console.log(`${client.user.tag}봇이 성공적으로 실행되었습니다`);
